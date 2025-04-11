@@ -1,0 +1,115 @@
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+
+local function stopAllAnimations()
+    local animator = humanoid:FindFirstChildOfClass("Animator")
+    if animator then
+        for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+            track:Stop()
+        end
+    end
+end
+stopAllAnimations()
+
+local idleAnimId = "rbxassetid://96173779255396"
+local walkAnimId = "rbxassetid://99159420513149"
+local runAnimId = "rbxassetid://96194626828153"
+local m1AnimId = "rbxassetid://88258635004597"
+local blockedAnimId = "rbxassetid://80277760801310"
+
+local idleAnim = Instance.new("Animation")
+idleAnim.AnimationId = idleAnimId
+local walkAnim = Instance.new("Animation") 
+walkAnim.AnimationId = walkAnimId
+local runAnim = Instance.new("Animation")
+runAnim.AnimationId = runAnimId
+local m1Anim = Instance.new("Animation")
+m1Anim.AnimationId = m1AnimId
+
+local idleTrack = humanoid:LoadAnimation(idleAnim)
+local walkTrack = humanoid:LoadAnimation(walkAnim) 
+local runTrack = humanoid:LoadAnimation(runAnim)
+local m1Track = humanoid:LoadAnimation(m1Anim)
+
+local isMoving = false
+local isRunning = false
+local canAttack = true
+local cooldown = 2
+
+local function blockUnwantedAnimations(animator)
+    animator.AnimationPlayed:Connect(function(animationTrack)
+        if animationTrack.Animation.AnimationId == blockedAnimId then
+            animationTrack:Stop()
+        end
+    end)
+end
+
+local animator = humanoid:FindFirstChildOfClass("Animator")
+if animator then
+    blockUnwantedAnimations(animator)
+else
+    humanoid.ChildAdded:Connect(function(child)
+        if child:IsA("Animator") then
+            blockUnwantedAnimations(child)
+        end
+    end)
+end
+
+local function updateAnimations()
+    if isMoving then
+        if isRunning then
+            if not runTrack.IsPlaying then
+                idleTrack:Stop()
+                walkTrack:Stop()
+                runTrack:Play()
+            end
+        else
+            if not walkTrack.IsPlaying then
+                idleTrack:Stop()
+                runTrack:Stop()
+                walkTrack:Play()
+            end
+        end
+    else
+        if not idleTrack.IsPlaying then
+            walkTrack:Stop()
+            runTrack:Stop()
+            idleTrack:Play()
+        end
+    end
+end
+
+local function onM1Click()
+    if canAttack then
+        canAttack = false
+        m1Track:Play()
+        idleTrack:Stop()
+        walkTrack:Stop()
+        runTrack:Stop()
+        task.wait(cooldown)
+        canAttack = true
+    end
+end
+
+game:GetService("RunService").Heartbeat:Connect(function()
+    isMoving = humanoid.MoveDirection.Magnitude > 0
+    isRunning = humanoid.WalkSpeed > 16
+    updateAnimations()
+end)
+
+game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.UserInputType == Enum.UserInputType.MouseButton1 then
+        onM1Click()
+    end
+end)
+
+humanoid.WalkSpeed = 16
+updateAnimations()
+ 
+local Sprinting = game:GetService("ReplicatedStorage").Systems.Character.Game.Sprinting
+local m = require(Sprinting)
+m.MaxStamina = 400
+m.StaminaGain = 30
+m.StaminaLoss = 20
+m.SprintSpeed = 29
