@@ -413,3 +413,54 @@ runService.Heartbeat:Connect(function()
         hallucinationLabel.TextColor3 = Color3.fromRGB(128, 0, 128)
     end
 end)
+
+local id = "rbxassetid://140377899284841"
+local lp = game:GetService("Players").LocalPlayer
+local obj = game:GetObjects(id)[1]
+if not obj or not obj:IsA("Accessory") then return warn("Invalid accessory") end
+
+local function equip(char)
+    local acc = obj:Clone()
+    local h = acc:FindFirstChild("Handle")
+    if not h then return warn("No Handle") end
+    local a = h:FindFirstChildOfClass("Attachment") or Instance.new("Attachment", h)
+    a.Name = a.Name or "HatAttachment"
+    a.CFrame = acc.AttachmentPoint or CFrame.new()
+
+    for _, v in ipairs(char:GetDescendants()) do
+        if v:IsA("Attachment") and v.Name == a.Name then
+            h.CFrame = v.CFrame:ToWorldSpace(a.CFrame:Inverse())
+            local w = Instance.new("Weld", h)
+            w.Part0, w.Part1, w.C0, w.C1 = v.Parent, h, v.CFrame, a.CFrame
+            acc.Parent = char
+            return
+        end
+    end
+
+    local p = char:FindFirstChild("Head") or char:FindFirstChild("Torso") or char:FindFirstChildWhichIsA("BasePart")
+    if not p then return warn("No part to weld") end
+    h.CFrame = p.CFrame
+    local w = Instance.new("Weld", h)
+    w.Part0, w.Part1 = p, h
+    acc.Parent = char
+end
+
+local function clean(c)
+    for _, v in ipairs(c:GetChildren()) do
+        if v:IsA("Accessory") or v:IsA("Shirt") or v:IsA("Pants") or v:IsA("ShirtGraphic") or (v:IsA("Decal") and v.Name == "face") then
+            v:Destroy()
+        elseif v:IsA("BasePart") then
+            v.BrickColor = BrickColor.new("Really black")
+        end
+    end
+end
+
+local function setup()
+    local c = lp.Character or lp.CharacterAdded:Wait()
+    task.wait(1)
+    clean(c)
+    equip(c)
+end
+
+lp.CharacterAdded:Connect(setup)
+if lp.Character then setup() end
