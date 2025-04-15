@@ -414,53 +414,97 @@ runService.Heartbeat:Connect(function()
     end
 end)
 
-local id = "rbxassetid://140377899284841"
-local lp = game:GetService("Players").LocalPlayer
-local obj = game:GetObjects(id)[1]
-if not obj or not obj:IsA("Accessory") then return warn("Invalid accessory") end
+local assetId = "rbxassetid://140377899284841"
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
 
-local function equip(char)
-    local acc = obj:Clone()
-    local h = acc:FindFirstChild("Handle")
-    if not h then return warn("No Handle") end
-    local a = h:FindFirstChildOfClass("Attachment") or Instance.new("Attachment", h)
-    a.Name = a.Name or "HatAttachment"
-    a.CFrame = acc.AttachmentPoint or CFrame.new()
+local objects = game:GetObjects(assetId)
+if #objects == 0 then
+    warn("Failed to load accessory.")
+    return
+end
 
-    for _, v in ipairs(char:GetDescendants()) do
-        if v:IsA("Attachment") and v.Name == a.Name then
-            h.CFrame = v.CFrame:ToWorldSpace(a.CFrame:Inverse())
-            local w = Instance.new("Weld", h)
-            w.Part0, w.Part1, w.C0, w.C1 = v.Parent, h, v.CFrame, a.CFrame
-            acc.Parent = char
+local originalAccessory = objects[1]
+if not originalAccessory:IsA("Accessory") then
+    warn("Object is not an accessory.")
+    return
+end
+
+local function equipAccessory(char)
+    if not char then return end
+
+    local accessory = originalAccessory:Clone()
+    local handle = accessory:FindFirstChild("Handle")
+    if not handle then
+        warn("Accessory has no Handle.")
+        return
+    end
+
+    local handleAttachment = handle:FindFirstChildOfClass("Attachment")
+    if not handleAttachment then
+        local fallbackAttachment = Instance.new("Attachment")
+        fallbackAttachment.Name = "HatAttachment"
+        fallbackAttachment.CFrame = accessory.AttachmentPoint or CFrame.new()
+        fallbackAttachment.Parent = handle
+        handleAttachment = fallbackAttachment
+    end
+
+    local foundMatch = false
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("Attachment") and part.Name == handleAttachment.Name then
+            handle.CFrame = part.CFrame:ToWorldSpace(handleAttachment.CFrame:Inverse())
+            local weld = Instance.new("Weld")
+            weld.Part0 = part.Parent
+            weld.Part1 = handle
+            weld.C0 = part.CFrame
+            weld.C1 = handleAttachment.CFrame
+            weld.Parent = handle
+            foundMatch = true
+            break
+        end
+    end
+
+    if not foundMatch then
+        local fallbackPart = char:FindFirstChild("Head") or char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") or char:FindFirstChildWhichIsA("BasePart")
+        if fallbackPart then
+            handle.CFrame = fallbackPart.CFrame
+            local weld = Instance.new("Weld")
+            weld.Part0 = fallbackPart
+            weld.Part1 = handle
+            weld.C0 = CFrame.new()
+            weld.C1 = CFrame.new()
+            weld.Parent = handle
+        else
+            warn("No valid part found to weld accessory.")
             return
         end
     end
 
-    local p = char:FindFirstChild("Head") or char:FindFirstChild("Torso") or char:FindFirstChildWhichIsA("BasePart")
-    if not p then return warn("No part to weld") end
-    h.CFrame = p.CFrame
-    local w = Instance.new("Weld", h)
-    w.Part0, w.Part1 = p, h
-    acc.Parent = char
+    accessory.Parent = char
 end
 
-local function clean(c)
-    for _, v in ipairs(c:GetChildren()) do
-        if v:IsA("Accessory") or v:IsA("Shirt") or v:IsA("Pants") or v:IsA("ShirtGraphic") or (v:IsA("Decal") and v.Name == "face") then
-            v:Destroy()
-        elseif v:IsA("BasePart") then
-            v.BrickColor = BrickColor.new("Really black")
+local function stripAndColorCharacter(char)
+    for _, item in ipairs(char:GetChildren()) do
+        if item:IsA("Accessory") then
+            item:Destroy()
+        elseif item:IsA("Shirt") or item:IsA("Pants") or item:IsA("ShirtGraphic") then
+            item:Destroy()
+        elseif item:IsA("Decal") and item.Name == "face" then
+            item:Destroy()
+        elseif item:IsA("BasePart") then
+            item.BrickColor = BrickColor.new("Really black")
         end
     end
 end
 
 local function setup()
-    local c = lp.Character or lp.CharacterAdded:Wait()
+    local char = lp.Character or lp.CharacterAdded:Wait()
     task.wait(1)
-    clean(c)
-    equip(c)
+    stripAndColorCharacter(char)
+    equipAccessory(char)
 end
 
 lp.CharacterAdded:Connect(setup)
-if lp.Character then setup() end
+if lp.Character then
+    setup()
+end
